@@ -3,11 +3,12 @@ from collections import ChainMap
 from dataclasses import dataclass
 from pprint import pprint
 from argparse import ArgumentParser
-import itertools as it, operator as op, math, json, platform
+import itertools as it, operator as op, math, json, platform, sys
 
 __version__ = '0.2.4'
+n = 6
 
-parser = Lark(r"""
+code = r"""
 _seperated{elem, sep}: [ elem (sep elem)* ]
 start: (extern_expr | assignment)*
 
@@ -20,6 +21,7 @@ extern_expr: "::" expr
     | NAME                                                  -> get_var
     | "(" expr ")"
     | "fn" _seperated{NAME, ","} "->" expr "endfn"          -> make_func
+    | "[" _seperated{expr, ","} "]"                         -> make_list
 
 literal: STRING
        | NUMBER
@@ -35,13 +37,19 @@ COMMENT: /#.*/
 %import common.WS
 %ignore WS
 %ignore COMMENT
-""", propagate_positions=True)
+"""
+
+parser = Lark(code, propagate_positions=True)
 
 class AttrDict(dict):
     __init__ = lambda self, d: super().__init__(dict(zip(map(str, d.keys()), d.values())))
     __getattr__ = lambda self, k: self[k]
 
+def _select_from_dict(d, keys):
+    return {x: d[x] for x in keys}
+
 FILE_CONTENT = ''
+PRINT_EXTERN = True
 ENV = ChainMap({}, {
     'true': True,
     'false': False,
@@ -49,17 +57,16 @@ ENV = ChainMap({}, {
         'concat': lambda x, y: x + y,
         'trace': lambda x, y="": [print(x), y][1],
         'format': lambda s, *a: s.format(*a),
-        **vars(op)
+        **_select_from_dict(vars(op), ['add', 'sub', 'mul', 'truediv', 'floordiv']),
+        'div': op.truediv
     }),
-    'math': AttrDict({
-        **vars(math)
-    })
+    'platform': platform.uname()
 })
 
 class FunctionTransformer(Transformer):
     def make_func(self, v):
         *args, tree = v
-        return (lambda env, *a: complete_transform(tree, env.new_child(dict(zip(args, a)))))
+        return Tree('compiled_func', [lambda env, *a: complete_transform(tree, env.new_child(dict(zip(args, a))))])
 
     def if_expr(self, v):
         _cond, e1, e2 = v
@@ -67,7 +74,10 @@ class FunctionTransformer(Transformer):
 
     def extern_expr(self, v):
         tree, = v
-        return Tree('compiled_extern_expr', [lambda env: [print(":: " + FILE_CONTENT[tree.meta.start_pos:tree.meta.end_pos]), complete_transform(tree, env)][1]])
+        if PRINT_EXTERN:
+            return Tree('compiled_extern_expr', [lambda env: [print(":: " + FILE_CONTENT[tree.meta.start_pos:tree.meta.end_pos]), complete_transform(tree, env)][1]])
+        else:
+            return tree
 
     def map(self, v):
         tree, = v
@@ -80,6 +90,9 @@ class PAMLTransformer(Transformer):
 
     def start(self, v):
         return self.env.maps[0]
+
+    def compiled_func(self, v):
+        return lambda *a: v[0](self.env, *a)
 
     def compiled_if_expr(self, v):
         return v[0](self.env)
@@ -98,17 +111,19 @@ class PAMLTransformer(Transformer):
 
     def method(self, v):
         obj, method = v
+        if method.startswith('_'):
+            raise AttributeError(f'{obj}.{method} is private and cannot be accessed.')
         return getattr(obj, method)
 
     def func_call(self, v):
         e, *a = v
-        if 'env' in e.__code__.co_varnames:     # Hacky, but who cares when brevity is on the line?
-            return e(self.env, *a)
-        else:
-            return e(*a)
+        return e(*a)
 
     def get_var(self, v):
         return self.env[v[0]]
+
+    def make_list(self, v):
+        return v
 
 def complete_transform(t, env):
     return PAMLTransformer(env).transform(FunctionTransformer().transform(t))
@@ -152,8 +167,11 @@ def run_file(f):
     print('\n======= DATA =======')
     pprint(d)
 
-def repl(env=ENV):   # TODO: UNSTABLE, FIX
+def repl(env=ENV):
+    global PRINT_EXTERN
     print(f'Welcome to PAML {__version__}!\nType :h for help or :q to exit.')
+    expr_parser = Lark(code, start='expr')
+    PRINT_EXTERN = False
     while True:
         s = input('> ')
         if s[0] == ':':
@@ -161,20 +179,16 @@ def repl(env=ENV):   # TODO: UNSTABLE, FIX
             elif s[1] == 'h': print('Commands: :q (exit), :h (help), :e (print environment)')
             elif s[1] == 'e': pprint(env)
         else:
-            while not s.endswith(';;'):
-                s += input('  ')
-            s = s[:-2]
             try:
-                res = run_str(s, env)
+                res = complete_transform(expr_parser.parse(s), env)
+                env['_'] = res
+                pprint(res)
             except:
-                res = run_str(':: ' + s, env)
-            env['_'] = res
-            pprint(res)
+                run_str(s, env)
         s = ''
 
 # Testing code
 
-n = 5
 FILE = f'test/test{n}.paml'
 
 def tester():
@@ -186,12 +200,8 @@ def tester():
     res = AttrDict(complete_transform(parsed, ENV))
     print(res)
 
-def main():
-    argparser = ArgumentParser()
-    argparser.add_argument('filename')
-    argparser.add_argument('--to-json')
-
 if __name__ == '__main__':
-    # tester()
-    # run_file(FILE)
-    repl()
+    if len(sys.argv) > 1:
+        run_file(sys.argv[1])
+    else:
+        repl()
