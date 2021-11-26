@@ -1,0 +1,9 @@
+five = 5
+five_plus_one = builtins.add(five, 1)
+:: builtins.trace(five_plus_one)
+here_inc = {
+    inc_amt = 2
+    here_inc_internal = fn x -> builtins.add(x, inc_amt) endfn
+}.here_inc_internal
+
+:: builtins.trace(here_inc(8))
