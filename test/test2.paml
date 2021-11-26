@@ -1,0 +1,3 @@
+testfn = fn x -> builtins.concat(x, "a") endfn
+
+ba = testfn("b")

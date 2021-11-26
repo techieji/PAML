@@ -1,0 +1,19 @@
+repeat = 
+  fn x, y ->
+    if builtins.eq(y, 0) then
+      ""
+    else
+      builtins.add(x, repeat(x, builtins.sub(y, 1)))
+    endif
+  endfn
+
+aa = repeat("a", 2)
+aaa = repeat("a", 3)
+
+debug =
+  fn name, value ->
+    builtins.trace(builtins.format("{} = {}", name, value), value)
+  endfn
+
+:: debug("aa", aa)
+:: debug("aaa", aaa)

@@ -1,0 +1,8 @@
+test_var = 
+    if false then
+        "testing"
+    else
+        "done testing"
+    endif
+
+:: builtins.trace(test_var)

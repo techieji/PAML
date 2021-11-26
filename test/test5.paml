@@ -1,0 +1,12 @@
+mapping = {
+    asdf = "asdf"
+    one = 1
+    testfn = fn -> builtins.trace("called from trace") endfn
+
+    :: testfn()
+}
+
+:: builtins.trace(mapping)
+:: builtins.trace(mapping.asdf)
+:: builtins.trace(mapping.one)
+:: mapping.testfn()
