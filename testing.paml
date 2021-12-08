@@ -1,0 +1,4 @@
+a = "a"
+b = 2
+la = builtins.add(a, b)
+c[d] = builtins.sub(builtins.add(a, la), a)

@@ -1,8 +1,8 @@
 test_var = 
-    if false then
-        "testing"
+    if builtins.eq(platform.system, "Linux") then
+        "On Linux"
     else
-        "done testing"
+        "On Windows"
     endif
 
 :: builtins.trace(test_var)

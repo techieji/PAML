@@ -1,3 +1,6 @@
-testfn = fn x -> builtins.concat(x, "a") endfn
+mk_project = fn x -> {
+    name = x
+    path = builtins.format("~/project_home/{}", x)
+} endfn
 
-ba = testfn("b")
+proj1 = mk_project("test")

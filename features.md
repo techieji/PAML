@@ -1,0 +1,8 @@
+- Date
+- Path
+- Binary blobs
+  - Just binary, for the user
+- Default args to functions
+- Cmd-line argument(-- onward)
+- Environment variables
+- Multiline strings
