@@ -164,11 +164,17 @@ def complete_transform(t, env):
 def run_str(s, env):
     return complete_transform(parser.parse(s), env)
 
-def import_module(filename):
+def loads(s):
     global FILE_CONTENT
-    with open(filename) as f:
-        FILE_CONTENT = f.read()
+    FILE_CONTENT = s
     return AttrDict(run_str(FILE_CONTENT, ENV))
+
+def load(f):
+    return loads(f.read())
+
+def import_module(filename):
+    with open(filename) as f:
+        return load(f)
 
 def is_json_serializable(o):
     try:
